@@ -3,6 +3,9 @@ import type { Dimension } from "./config.ts";
 
 export type ReviewMode = "changes" | "codebase";
 
+// Which SDK answered the judgments for a saved report.
+export type JudgmentBackend = "typesafe" | "ai-gateway";
+
 export type ChangedFile = {
   path: string;
   patch: string;
@@ -59,6 +62,7 @@ export type ReviewReport = {
     severityMax: number;
     maxFollowUps: number;
     maxProfiles: number;
+    judgment?: JudgmentBackend;
   };
   screenedFiles: number;
   contextFiles: string[];

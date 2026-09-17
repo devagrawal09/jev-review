@@ -1,6 +1,6 @@
 // Codebase-scan judgments. These ask whether an issue exists in complete
 // source, rather than whether a patch introduced one.
-import { choice, noul, score, TypeSafeClient } from "@typesafe-ai/sdk";
+import { ask, choice, noul, score } from "../adapters/judgment.ts";
 import { basename, dirname } from "node:path";
 import {
   BLOCKING_SEVERITY,
@@ -13,15 +13,8 @@ import {
   ROUTE_SEVERITY,
   severityRubric,
 } from "../domain/config.ts";
-import type {
-  FileProfile,
-  Finding,
-  Screening,
-  Signal,
-  SourceFile,
-} from "../domain/types.ts";
+import type { FileProfile, Finding, Screening, Signal, SourceFile } from "../domain/types.ts";
 
-const client = new TypeSafeClient();
 const REGION_LINES = 80;
 const SCREEN_REGION_LINES = 160;
 const MAX_RELATED_TESTS = 4;
@@ -44,7 +37,7 @@ export async function screenSourceFile(
   const results: Array<Record<Dimension, number>> = [];
 
   for (const region of sourceRegions(file.content, SCREEN_REGION_LINES)) {
-    const response = await client.systemOne({
+    const response = await ask({
       state: {
         file: { path: file.path, startLine: region.startLine, content: region.content },
         relatedTests,
@@ -135,14 +128,14 @@ export async function screenSourceFile(
           },
         ),
       },
-  });
+    });
 
     results.push({
-      correctness: response.answers.correctness.noul,
-      security: response.answers.security.noul,
-      reliability: response.answers.reliability.noul,
-      compatibility: response.answers.compatibility.noul,
-      testGap: response.answers.testGap.noul,
+      correctness: response.answers.correctness.probability,
+      security: response.answers.security.probability,
+      reliability: response.answers.reliability.probability,
+      compatibility: response.answers.compatibility.probability,
+      testGap: response.answers.testGap.probability,
     });
   }
 
@@ -162,7 +155,7 @@ export async function profileSourceFile(
   file: SourceFile,
   screeningProbabilities: Record<Dimension, number>,
 ): Promise<FileProfile> {
-  const response = await client.systemOne({
+  const response = await ask({
     state: { file, screeningProbabilities },
     questions: {
       category: choice(
@@ -195,7 +188,7 @@ export async function locateSourceSignal(
     dimension: signal.dimension,
     definition: dimensions[signal.dimension],
   };
-  const location = await client.systemOne({
+  const location = await ask({
     state: {
       file: signal.file.path,
       suspectedConcern: { ...suspectedConcern, screeningProbability: signal.probability },
@@ -222,7 +215,7 @@ export async function locateSourceSignal(
   const region = regions.find((candidate) => candidate.id === selected.choice);
   if (!region) return null;
 
-  const classification = await client.systemOne({
+  const classification = await ask({
     state: { file: signal.file.path, suspectedConcern, selectedEvidence: region },
     questions: {
       mechanism: choice(
@@ -234,7 +227,7 @@ export async function locateSourceSignal(
   const mechanism = classification.answers.mechanism;
   if (mechanism.choice === "noIssue") return null;
 
-  const impact = await client.systemOne({
+  const impact = await ask({
     state: { file: signal.file.path, suspectedConcern, selectedEvidence: region },
     questions: {
       severity: score(
@@ -248,7 +241,7 @@ export async function locateSourceSignal(
   let owner: string | null = null;
   let ownerConfidence: number | null = null;
   if (severity.score >= ROUTE_SEVERITY) {
-    const routing = await client.systemOne({
+    const routing = await ask({
       state: {
         file: signal.file.path,
         concern: {

@@ -1,5 +1,6 @@
 // Shared staged orchestration. Each review mode owns discovery and judgments;
 // this module owns concurrency, thresholds, ranking, and report assembly.
+import { judgmentBackend } from "../adapters/judgment.ts";
 import {
   CONCURRENCY,
   type Dimension,
@@ -39,9 +40,13 @@ export async function runReview<File extends { path: string }, Context extends {
   log: Log,
   strategy: Strategy<File, Context>,
 ): Promise<ReviewReport> {
+  const judgment = judgmentBackend();
+  log("judgment backend: " + judgment);
   const { files, contextFiles } = strategy.discover(scope);
   if (files.length === 0) {
-    throw new Error("No " + strategy.subject + " JavaScript or TypeScript files found under " + scope);
+    throw new Error(
+      "No " + strategy.subject + " JavaScript or TypeScript files found under " + scope,
+    );
   }
 
   log("Screening " + files.length + " " + strategy.subject + " files with " + contextFiles.length + " " + strategy.context + " files as context...");
@@ -93,6 +98,7 @@ export async function runReview<File extends { path: string }, Context extends {
       severityMax: SEVERITY_MAX,
       maxFollowUps: MAX_FOLLOW_UPS,
       maxProfiles: MAX_PROFILES,
+      judgment,
     },
     screenedFiles: files.length,
     contextFiles: contextFiles.map((file) => file.path),

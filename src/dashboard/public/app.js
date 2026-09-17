@@ -450,12 +450,25 @@ function renderMeta(state) {
   const scope = state.report.scope;
   const name = scope.split("/").filter(Boolean).pop() ?? scope;
   const mode = state.report.mode === "codebase" ? "Codebase scan" : "Change review";
-  meta.append(
+  const judgment = state.report.config?.judgment;
+
+  const items = [
     h("span", { class: "mode", title: mode }, mode),
-    h("span", { class: "sep", "aria-hidden": "true" }, "·"),
     h("span", { class: "scope", title: scope }, name),
-    h("span", { class: "sep", "aria-hidden": "true" }, "·"),
-    h("time", { datetime: state.savedAt, title: new Date(state.savedAt).toLocaleString() }, ago(state.savedAt)),
+  ];
+
+  if (judgment) items.push(h("span", { class: "mode", title: "judgment backend" }, judgment));
+  items.push(
+    h(
+      "time",
+      { datetime: state.savedAt, title: new Date(state.savedAt).toLocaleString() },
+      ago(state.savedAt),
+    ),
+  );
+  meta.append(
+    ...items.flatMap((item, index) =>
+      index === 0 ? [item] : [h("span", { class: "sep", "aria-hidden": "true" }, "·"), item],
+    ),
   );
 }
 
