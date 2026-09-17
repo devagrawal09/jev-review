@@ -1,6 +1,6 @@
 # Jev Review
 
-A small code-review workflow built with [TypeSafe Jev](https://typesafe.ai). It can review a Git diff or scan a complete codebase, follows the strongest structured signals through focused model calls, and presents the result in a quiet local dashboard.
+A small code-review workflow built with [TypeSafe Jev](https://typesafe.ai). It can review a branch's diff against main or scan a complete codebase, follows the strongest structured signals through focused model calls, and presents the result in a quiet local dashboard.
 
 ![Jev Review dashboard](docs/dashboard.png)
 
@@ -35,7 +35,7 @@ npm install
 cp .env.example .env
 # Add TYPESAFE_API_KEY to .env
 
-# Review the current Git diff
+# Review this branch's changes against main
 npm run review:changes:save -- /path/to/git/repository
 
 # Or scan every non-ignored source file under a scope
@@ -49,8 +49,8 @@ Open [http://127.0.0.1:4317](http://127.0.0.1:4317).
 
 | Command | Purpose |
 | --- | --- |
-| `npm run review:changes -- <path>` | Print a current-diff review as JSON |
-| `npm run review:changes:save -- <path>` | Save a current-diff review for the dashboard |
+| `npm run review:changes -- <path>` | Print a branch-vs-main review as JSON |
+| `npm run review:changes:save -- <path>` | Save a branch-vs-main review for the dashboard |
 | `npm run review:codebase -- <path>` | Print a complete codebase scan as JSON |
 | `npm run review:codebase:save -- <path>` | Save a complete codebase scan for the dashboard |
 | `npm run dashboard` | Start the local dashboard |
@@ -63,7 +63,7 @@ Everything lives under `src/`, arranged in layers that only depend downward:
 ```text
 src/
   domain/      config.ts, types.ts, patch.ts   shared policy, report shapes, diff parsing
-  adapters/    git.ts, repository-files.ts     change and complete-source discovery
+  adapters/    git.ts, repository-files.ts     branch-diff and complete-source discovery
                report-store.ts                 atomic report save/load
   review/      changes.ts, codebase.ts          mode-specific workflows
                *-judgments.ts, workflow.ts     Jev calls and shared staged orchestration

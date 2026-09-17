@@ -1,8 +1,6 @@
 // Unified-diff helpers shared by the Git adapter and the review workflow.
 import type { Hunk } from "./types.ts";
 
-const UNTRACKED_CHUNK_LINES = 80;
-
 // Splits a unified diff into hunks, tracking the new-file start line of each.
 export function parseHunks(patch: string): Hunk[] {
   const hunks: Hunk[] = [];
@@ -32,20 +30,4 @@ export function parseHunks(patch: string): Hunk[] {
 
   flush();
   return hunks;
-}
-
-// Renders a brand-new file as an all-additions diff, chunked so that hunk
-// selection still points at a specific region of the file.
-export function patchForNewFile(source: string): string {
-  const lines = source.split("\n");
-  const chunkCount = Math.ceil(lines.length / UNTRACKED_CHUNK_LINES);
-
-  return Array.from({ length: chunkCount }, (_, index) => {
-    const start = index * UNTRACKED_CHUNK_LINES;
-    const chunk = lines.slice(start, start + UNTRACKED_CHUNK_LINES);
-    return [
-      `@@ -0,0 +${start + 1},${chunk.length} @@`,
-      ...chunk.map((line) => `+${line}`),
-    ].join("\n");
-  }).join("\n");
 }
