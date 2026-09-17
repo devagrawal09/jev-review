@@ -1,5 +1,5 @@
 // Change-review judgments. Every call is narrow and receives patch evidence.
-import { choice, noul, score, TypeSafeClient } from "@typesafe-ai/sdk";
+import { ask, choice, noul, score } from "../adapters/judgment.ts";
 import {
   BLOCKING_SEVERITY,
   type Dimension,
@@ -12,15 +12,7 @@ import {
   severityRubric,
 } from "../domain/config.ts";
 import { parseHunks } from "../domain/patch.ts";
-import type {
-  ChangedFile,
-  FileProfile,
-  Finding,
-  Screening,
-  Signal,
-} from "../domain/types.ts";
-
-const client = new TypeSafeClient();
+import type { ChangedFile, FileProfile, Finding, Screening, Signal } from "../domain/types.ts";
 
 const changeTypes = {
   behavior: "Adds or changes runtime behavior",
@@ -35,7 +27,7 @@ export async function screenFile(
   file: ChangedFile,
   changedTests: ChangedFile[],
 ): Promise<Screening<ChangedFile>> {
-  const response = await client.systemOne({
+  const response = await ask({
     state: { file, changedTests },
     questions: {
       correctness: noul(
@@ -124,11 +116,11 @@ export async function screenFile(
   return {
     file,
     probabilities: {
-      correctness: response.answers.correctness.noul,
-      security: response.answers.security.noul,
-      reliability: response.answers.reliability.noul,
-      compatibility: response.answers.compatibility.noul,
-      testGap: response.answers.testGap.noul,
+      correctness: response.answers.correctness.probability,
+      security: response.answers.security.probability,
+      reliability: response.answers.reliability.probability,
+      compatibility: response.answers.compatibility.probability,
+      testGap: response.answers.testGap.probability,
     },
   };
 }
@@ -137,7 +129,7 @@ export async function profileFile(
   file: ChangedFile,
   screeningProbabilities: Record<Dimension, number>,
 ): Promise<FileProfile> {
-  const response = await client.systemOne({
+  const response = await ask({
     state: { file, screeningProbabilities },
     questions: {
       category: choice(
@@ -170,7 +162,7 @@ export async function locateSignal(
     dimension: signal.dimension,
     definition: dimensions[signal.dimension],
   };
-  const location = await client.systemOne({
+  const location = await ask({
     state: {
       file: signal.file.path,
       suspectedConcern: { ...suspectedConcern, screeningProbability: signal.probability },
@@ -197,7 +189,7 @@ export async function locateSignal(
   const hunk = hunks.find((candidate) => candidate.id === selected.choice);
   if (!hunk) return null;
 
-  const classification = await client.systemOne({
+  const classification = await ask({
     state: { file: signal.file.path, suspectedConcern, selectedEvidence: hunk },
     questions: {
       mechanism: choice(
@@ -209,7 +201,7 @@ export async function locateSignal(
   const mechanism = classification.answers.mechanism;
   if (mechanism.choice === "noIssue") return null;
 
-  const impact = await client.systemOne({
+  const impact = await ask({
     state: { file: signal.file.path, suspectedConcern, selectedEvidence: hunk },
     questions: {
       severity: score(
@@ -223,7 +215,7 @@ export async function locateSignal(
   let owner: string | null = null;
   let ownerConfidence: number | null = null;
   if (severity.score >= ROUTE_SEVERITY) {
-    const routing = await client.systemOne({
+    const routing = await ask({
       state: {
         file: signal.file.path,
         concern: {

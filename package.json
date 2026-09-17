@@ -15,12 +15,15 @@
     "review:codebase": "node --env-file=.env src/cli/review-codebase.ts",
     "review:codebase:save": "node --env-file=.env src/cli/save-codebase.ts",
     "dashboard": "node src/dashboard/server.ts",
+    "test": "node --test src/adapters/judgment.test.ts scripts/report.test.ts",
     "typecheck": "tsc --noEmit",
     "check:deps": "node scripts/check-dependencies.ts",
     "check": "npm run typecheck && npm run check:deps && node --check src/dashboard/public/app.js"
   },
   "dependencies": {
-    "@typesafe-ai/sdk": "^0.6.0"
+    "@ai-sdk/gateway": "^4.0.85",
+    "@typesafe-ai/sdk": "^0.6.0",
+    "ai": "^7.0.105"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

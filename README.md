@@ -28,12 +28,13 @@ Noul risk matrix
 
 ## Quick Start
 
-Requires Node.js 24+, Git, and a [TypeSafe API key](https://console.typesafe.ai/settings/keys).
+Requires Node.js 24+, Git, and either a [TypeSafe API key](https://console.typesafe.ai/settings/keys)
+or a [Vercel AI Gateway key](https://vercel.com/dashboard).
 
 ```bash
 npm install
 cp .env.example .env
-# Add TYPESAFE_API_KEY to .env
+# Add TYPESAFE_API_KEY, or AI_GATEWAY_API_KEY with JUDGE_BACKEND=ai-gateway
 
 # Review the current Git diff
 npm run review:changes:save -- /path/to/git/repository
@@ -43,18 +44,36 @@ npm run review:codebase:save -- /path/to/git/repository-or-package
 npm run dashboard
 ```
 
+Judgments run through the TypeSafe SDK when `TYPESAFE_API_KEY` is set. Set
+`JUDGE_BACKEND=ai-gateway` to run the same questions through the Vercel AI SDK and AI
+Gateway instead. Both reach the same Jev evaluation engine, and every saved report
+records which backend answered it.
+
+AI Gateway requests automatically pause together on HTTP 429 or 503, honor `Retry-After`
+(seconds or HTTP date) and `retry-after-ms`, and otherwise use exponential backoff
+of two seconds, then four seconds, then eight seconds for every subsequent retry.
+Rate limits and temporary model outages retry until the service recovers or you
+press Ctrl+C; completed judgments stay in memory while waiting. A persistent outage
+can keep the review waiting indefinitely. Authentication, billing, and invalid-request
+errors still fail normally. Retries are logged to stderr. A failed review
+leaves the previous saved report unchanged. Cooldowns apply within one process.
+Vercel publishes no fixed numeric free-tier limit: limits vary by model; paid-tier
+requests have no Gateway limit but remain subject to provider limits. See
+[Vercel's rate-limit documentation](https://vercel.com/docs/ai-gateway/rate-limits).
+
 Open [http://127.0.0.1:4317](http://127.0.0.1:4317).
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `npm run review:changes -- <path>` | Print a current-diff review as JSON |
-| `npm run review:changes:save -- <path>` | Save a current-diff review for the dashboard |
-| `npm run review:codebase -- <path>` | Print a complete codebase scan as JSON |
-| `npm run review:codebase:save -- <path>` | Save a complete codebase scan for the dashboard |
-| `npm run dashboard` | Start the local dashboard |
-| `npm run check` | Typecheck, verify dependency flow, and syntax-check the dashboard client |
+| Command                                  | Purpose                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `npm run review:changes -- <path>`       | Print a current-diff review as JSON                                             |
+| `npm run review:changes:save -- <path>`  | Save a current-diff review for the dashboard                                    |
+| `npm run review:codebase -- <path>`      | Print a complete codebase scan as JSON                                          |
+| `npm run review:codebase:save -- <path>` | Save a complete codebase scan for the dashboard                                 |
+| `npm run dashboard`                      | Start the local dashboard                                                       |
+| `npm run check`                          | Typecheck, verify dependency flow, and syntax-check the dashboard client        |
+| `npm test`                               | Check the judgment backends: question shapes, backend selection, answer mapping |
 
 ## Architecture
 
@@ -65,6 +84,7 @@ src/
   domain/      config.ts, types.ts, patch.ts   shared policy, report shapes, diff parsing
   adapters/    git.ts, repository-files.ts     change and complete-source discovery
                report-store.ts                 atomic report save/load
+               judgment.ts                     TypeSafe SDK and AI SDK judgment backends
   review/      changes.ts, codebase.ts          mode-specific workflows
                *-judgments.ts, workflow.ts     Jev calls and shared staged orchestration
   cli/         review-*.ts, save-*.ts           explicit mode entry points
