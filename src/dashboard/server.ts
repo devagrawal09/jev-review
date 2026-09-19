@@ -9,6 +9,9 @@ const HOST = "127.0.0.1";
 const PORT = Number(process.env.PORT ?? 4317);
 const REPORT = reportPath();
 const PUBLIC_DIR = join(import.meta.dirname, "public");
+// DNS-rebinding guard: another site can point its hostname at 127.0.0.1, but the
+// browser still sends that hostname in the Host header, so only accept our own.
+const ALLOWED_HOSTS = new Set([`${HOST}:${PORT}`, `localhost:${PORT}`]);
 
 // Only these files are served; nothing else on disk is reachable.
 const assets: Record<string, [file: string, type: string]> = {
@@ -32,6 +35,9 @@ function json(res: ServerResponse, status: number, body: unknown) {
 }
 
 export async function handle(req: IncomingMessage, res: ServerResponse) {
+  if (!ALLOWED_HOSTS.has(req.headers.host?.toLowerCase() ?? "")) {
+    return send(res, 403, "text/plain; charset=utf-8", "Forbidden host");
+  }
   if (req.method !== "GET" && req.method !== "HEAD") {
     return send(res, 405, "text/plain; charset=utf-8", "Method not allowed");
   }

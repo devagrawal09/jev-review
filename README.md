@@ -2,6 +2,8 @@
 
 A small code-review workflow built with [TypeSafe Jev](https://typesafe.ai). It can review a Git diff or scan a complete codebase, follows the strongest structured signals through focused model calls, and presents the result in a quiet local dashboard.
 
+It reviews JavaScript and TypeScript source only (`.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs`, `.mts`, `.cts`); files in other languages are skipped.
+
 ![Jev Review dashboard](docs/dashboard.png)
 
 ## How It Works
@@ -24,7 +26,7 @@ Noul risk matrix
 - Uses structured hints, counterexamples, and explicit decision boundaries.
 - Applies thresholds and workflow policy in code.
 - Shows large reports in collapsible dashboard sections.
-- Binds the dashboard to `127.0.0.1` and never serves environment files.
+- Binds the dashboard to `127.0.0.1`, rejects requests whose `Host` is not `127.0.0.1` or `localhost` (DNS-rebinding protection), and never serves environment files.
 
 ## Quick Start
 
