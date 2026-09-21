@@ -73,8 +73,15 @@ export async function runReview<File extends { path: string }, Context extends {
     return strategy.profile(file, probabilities);
   });
 
-  const followUps = signals.slice(0, MAX_FOLLOW_UPS);
+  const maxFollowUps = resolveMaxFollowUps();
+  const followUps = signals.slice(0, maxFollowUps);
   log("Following " + followUps.length + " of " + signals.length + " signals at or above " + SCREEN_THRESHOLD + "...");
+  if (signals.length > followUps.length) {
+    log(
+      "  " + (signals.length - followUps.length) + " signals above threshold were not inspected " +
+        "(set JEV_REVIEW_MAX_FOLLOW_UPS to raise the cap; each inspected signal costs additional Jev calls).",
+    );
+  }
   const located = await mapLimit(followUps, CONCURRENCY, (signal) => {
     log("  inspect " + signal.file.path + " [" + signal.dimension + "=" + signal.probability.toFixed(2) + "]");
     return strategy.locate(signal);
@@ -91,7 +98,7 @@ export async function runReview<File extends { path: string }, Context extends {
     config: {
       screenThreshold: SCREEN_THRESHOLD,
       severityMax: SEVERITY_MAX,
-      maxFollowUps: MAX_FOLLOW_UPS,
+      maxFollowUps,
       maxProfiles: MAX_PROFILES,
     },
     screenedFiles: files.length,
@@ -113,6 +120,15 @@ export async function runReview<File extends { path: string }, Context extends {
 
 function maxProbability<File extends { path: string }>(screening: Screening<File>): number {
   return Math.max(...Object.values(screening.probabilities));
+}
+
+// MAX_FOLLOW_UPS is a flat cost-control default; a codebase scan can screen far more signals
+// above threshold than a diff ever would, so it's overridable per run rather than raised globally.
+function resolveMaxFollowUps(): number {
+  const override = process.env.JEV_REVIEW_MAX_FOLLOW_UPS;
+  if (override === undefined) return MAX_FOLLOW_UPS;
+  const parsed = Number(override);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : MAX_FOLLOW_UPS;
 }
 
 async function mapLimit<T, R>(
