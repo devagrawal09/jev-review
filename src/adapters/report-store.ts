@@ -1,5 +1,6 @@
 // Filesystem adapter for the saved review report that the dashboard reads.
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { isReviewReport, type ReviewReport } from "../domain/types.ts";
 
@@ -35,10 +36,29 @@ export async function readReport(path = reportPath()): Promise<StoredReport> {
   return { status: "error", message: "Report is not review output" };
 }
 
-// Writes to a temp file and renames so readers never see a partial report.
+// Writes to a unique temp file created with O_EXCL and renames, so readers
+// never see a partial report and a planted symlink is never followed.
 export async function saveReport(report: ReviewReport, path = reportPath()): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const temp = `${path}.${process.pid}.tmp`;
-  await writeFile(temp, `${JSON.stringify(report, null, 2)}\n`);
-  await rename(temp, path);
+  const data = `${JSON.stringify(report, null, 2)}\n`;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const temp = `${path}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temp, data, { flag: "wx" });
+    } catch (error) {
+      // EEXIST: another process owns the name; retry. Any other failure may
+      // have created our temp file, so remove it before surfacing the error.
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") continue;
+      await unlink(temp).catch(() => {});
+      throw error;
+    }
+    try {
+      await rename(temp, path);
+    } catch (error) {
+      await unlink(temp).catch(() => {});
+      throw error;
+    }
+    return;
+  }
+  throw new Error("Could not save report: temp file collisions");
 }

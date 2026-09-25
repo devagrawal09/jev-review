@@ -6,7 +6,24 @@ import { join, relative } from "node:path";
 import { readReport, reportPath } from "../adapters/report-store.ts";
 
 const HOST = "127.0.0.1";
-const PORT = Number(process.env.PORT ?? 4317);
+const DEFAULT_PORT = 4317;
+const PORT = port();
+function port(): number {
+  const raw = process.env.PORT;
+  if (raw === undefined || raw.trim() === "") return DEFAULT_PORT;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535 ? parsed : DEFAULT_PORT;
+}
+// Accepts "host" or "host:port". Browsers omit the port on default ports,
+// so a dashboard bound to 80 must accept a bare Host header.
+function isAllowedHost(value: string): boolean {
+  const host = value.trim().toLowerCase();
+  const [name, portPart] = host.split(":");
+  if (name !== HOST && name !== "localhost") return false;
+  if (portPart === undefined) return PORT === 80;
+  if (portPart === "80" && PORT === 80) return true;
+  return portPart === String(PORT);
+}
 const REPORT = reportPath();
 const PUBLIC_DIR = join(import.meta.dirname, "public");
 
@@ -22,7 +39,7 @@ function send(res: ServerResponse, status: number, type: string, body: string | 
     "Content-Type": type,
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:",
+    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'",
   });
   res.end(body);
 }
@@ -32,6 +49,10 @@ function json(res: ServerResponse, status: number, body: unknown) {
 }
 
 export async function handle(req: IncomingMessage, res: ServerResponse) {
+  if (!isAllowedHost(req.headers.host ?? "")) {
+    return send(res, 403, "text/plain; charset=utf-8", "Forbidden");
+  }
+
   if (req.method !== "GET" && req.method !== "HEAD") {
     return send(res, 405, "text/plain; charset=utf-8", "Method not allowed");
   }
