@@ -1,5 +1,5 @@
 // Git-backed source discovery for complete codebase scans. Tracked and
-// untracked, non-ignored JavaScript and TypeScript files are included.
+// untracked, non-ignored source and manifest files are included.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { relative, resolve } from "node:path";

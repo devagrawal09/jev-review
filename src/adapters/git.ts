@@ -18,6 +18,15 @@ function lines(output: string): string[] {
   return output.split("\n").filter(Boolean);
 }
 
+// Neutralize policy-styled comment blocks so attacker-controlled prose cannot
+// masquerade as review policy inside the model state.
+export function sanitizePatch(patch: string): string {
+  return patch.replace(
+    /((?:\/\/|#|\/\*+|\*)\s*(?:#{1,6}\s*)?(?:review|merge|approval|security)\s+policy\b)[^\n]*/gi,
+    "$1 [content neutralized by input hardening]",
+  );
+}
+
 export function changedFiles(scope: string): ChangedFile[] {
   const realScope = realpathSync(scope);
   const repoRoot = git(realScope, ["rev-parse", "--show-toplevel"]).trim();
@@ -45,7 +54,7 @@ export function changedFiles(scope: string): ChangedFile[] {
   return paths.map((path) => ({
     path,
     patch: untrackedSet.has(path)
-      ? patchForNewFile(readFileSync(resolve(repoRoot, path), "utf8"))
-      : git(repoRoot, ["diff", "HEAD", "--unified=3", "--", path]),
+      ? sanitizePatch(patchForNewFile(readFileSync(resolve(repoRoot, path), "utf8")))
+      : sanitizePatch(git(repoRoot, ["diff", "HEAD", "--unified=3", "--", path])),
   }));
 }
